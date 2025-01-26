@@ -91,7 +91,7 @@ X = [[1, 2, 3, 2.5],
 class Layer_Dense:
     def __init__(self, n_inputs, n_neurons):
         # 0.10 is multiplied to keep the weights in range of -1 to 1
-        self.weights = 0.10 * np.random.randn(n_inputs, n_neurons) # weights that will be size of input multiplied by number of neurons
+        self.weights = 0.01 * np.random.randn(n_inputs, n_neurons) # weights that will be size of input multiplied by number of neurons
         self.biases = np.zeros((1, n_neurons)) # by default biases are initialized to 0 unless necessary
     def forward(self,inputs):
         self.output = np.dot(inputs, self.weights) + self.biases
