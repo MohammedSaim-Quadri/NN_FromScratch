@@ -24,7 +24,7 @@ biases = [2, 3, 0.5]
 
 # standard way 
 '''
-the matrix in this case would nee dto be transposed i.e (R,C) -> (C,R)
+the matrix in this case would need to be transposed i.e (R,C) -> (C,R)
 inorder to satisfy the rule of matrix multiplication
 which requires that in matrix multiplication,the number of columns of first opperand -
 be equal to the number of rows of second operand, i.e matrix1(R1,c1) * matrix2(R2,c2) - 
