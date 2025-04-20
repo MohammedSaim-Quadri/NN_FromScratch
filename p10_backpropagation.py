@@ -121,6 +121,15 @@ previous approach.
 Now lets intregrate this concept into our actual code that we have been building up until now.
 '''
 
+'''
+Combining everything into one complete pipeline :
+Forward Pass:
+Input (X) → Dense1 → ReLU → Dense2 → Softmax → Loss
+
+Backward Pass:
+Loss gradient → Softmax gradient → Dense2 gradient → ReLU gradient → Dense1 gradient
+'''
+
 import numpy as np 
 from create_data import spiral_data
 np.random.seed(0)
@@ -143,10 +152,16 @@ class Layer_Dense:
 
     # Backward pass 
     def backward(self, dvalues): 
-        # Gradients on parameters 
+        # Gradient of loss with respect to weights: inputs^T @ dvalues
+        # This follows from the chain rule of differentiation
         self.dweights = np.dot(self.inputs.T, dvalues) 
+
+        # Gradient of loss with respect to biases: sum of dvalues across samples
+        # We sum across axis 0 to get one gradient per neuron
         self.dbiases = np.sum(dvalues, axis=0, keepdims=True) 
-        # Gradient on values 
+
+        # Gradient of loss with respect to inputs: dvalues @ weights^T
+        # This is used to propagate gradients to earlier layers 
         self.dinputs = np.dot(dvalues, self.weights.T) 
 
 # ReLU activation 
@@ -163,16 +178,18 @@ class Activation_ReLU:
         # Since we need to modify original variable, 
         # let's make a copy of values first 
         self.dinputs = dvalues.copy() 
-        # Zero gradient where input values were negative 
+        # ReLU derivative is 1 for inputs > 0 and 0 otherwise
+        # Zero out gradients where inputs were negative
         self.dinputs[self.inputs <= 0] = 0 
 
 # Softmax activation 
 class Activation_Softmax: 
     # Forward pass 
     def forward(self, inputs): 
-        # Remember input values 
+        # store inputs for backpropagation 
         self.inputs = inputs 
-        # Get unnormalized probabilities 
+        # Subtract max value for numerical stability before exponentiation
+        # This prevents overflow by keeping exponent values in a manageable range
         exp_values = np.exp(inputs - np.max(inputs, axis=1, 
                                             keepdims=True)) 
         # Normalize them for each sample 
@@ -188,10 +205,12 @@ class Activation_Softmax:
         for index, (single_output, single_dvalues) in enumerate(zip(self.output, dvalues)): 
             # Flatten output array 
             single_output = single_output.reshape(-1, 1) 
-            # Calculate Jacobian matrix of the output and 
+            # Calculate Jacobian matrix of softmax
+            # For softmax: J(i,j) = S_i * (kronecker_delta(i,j) - S_j)
             jacobian_matrix = np.diagflat(single_output) - np.dot(single_output, single_output.T) 
             # Calculate sample-wise gradient 
             # and add it to the array of sample gradients 
+            # Apply chain rule: dinputs = jacobian_matrix @ dvalues
             self.dinputs[index] = np.dot(jacobian_matrix,single_dvalues) 
 
 
@@ -208,7 +227,8 @@ class Loss:
         return data_loss 
 
 
-# Cross-entropy loss 
+# Cross-entropy loss -
+# measures difference between predicted and true probability distributions 
 class Loss_CategoricalCrossentropy(Loss): 
     # Forward pass 
     def forward(self, y_pred, y_true): 
@@ -217,20 +237,26 @@ class Loss_CategoricalCrossentropy(Loss):
         # Clip data to prevent division by 0 
         # Clip both sides to not drag mean towards any value 
         y_pred_clipped = np.clip(y_pred, 1e-7, 1 - 1e-7) 
-        # Probabilities for target values - 
-        # only if categorical labels 
+        # Handle different label formats:
+        # If categorical labels (sparse, single integer per sample)
         if len(y_true.shape) == 1: 
+            # Extract the predicted probability for the correct class
             correct_confidences = y_pred_clipped[ 
                 range(samples), 
                 y_true 
             ] 
-        # Mask values - only for one-hot encoded labels 
+        # Mask values - If one-hot encoded labels (vector of 0s with a 1 for correct class) 
         elif len(y_true.shape) == 2: 
             correct_confidences = np.sum( 
                 y_pred_clipped * y_true, 
                 axis=1 
             ) 
-        # Losses 
+
+        '''
+        #Cross-entropy loss: -log(correct_probability)
+        # The negative log converts probabilities (0-1) to positive loss values
+        # Higher confidence = lower loss, lower confidence = higher loss 
+        '''
         negative_log_likelihoods = -np.log(correct_confidences) 
         return negative_log_likelihoods 
 
@@ -241,10 +267,13 @@ class Loss_CategoricalCrossentropy(Loss):
         # Number of labels in every sample 
         # We'll use the first sample to count them 
         labels = len(dvalues[0]) 
+
         # If labels are sparse, turn them into one-hot vector 
         if len(y_true.shape) == 1: 
             y_true = np.eye(labels)[y_true] 
-        # Calculate gradient 
+
+        # Calculate gradient: -true_value / predicted_value
+        # This derives from taking derivative of -log(x) with respect to x
         self.dinputs = -y_true / dvalues 
         # Normalize gradient 
         self.dinputs = self.dinputs / samples 
@@ -252,6 +281,9 @@ class Loss_CategoricalCrossentropy(Loss):
 
 # Softmax classifier - combined Softmax activation 
 # and cross-entropy loss for faster backward step 
+'''
+This provides numerical stability and computational efficiency
+'''
 class Activation_Softmax_Loss_CategoricalCrossentropy(): 
     # Creates activation and loss function objects 
     def __init__(self): 
@@ -260,9 +292,9 @@ class Activation_Softmax_Loss_CategoricalCrossentropy():
 
     # Forward pass 
     def forward(self, inputs, y_true): 
-        # Output layer's activation function 
+        # Output layer's activation function - apply softmax
         self.activation.forward(inputs) 
-        # Set the output 
+        # Store output for backward pass
         self.output = self.activation.output 
         # Calculate and return loss value 
         return self.loss.calculate(self.output, y_true) 
@@ -272,12 +304,17 @@ class Activation_Softmax_Loss_CategoricalCrossentropy():
         # Number of samples 
         samples = len(dvalues) 
         # If labels are one-hot encoded, 
-        # turn them into discrete values 
+        # turn them into discrete class indices if needed 
         if len(y_true.shape) == 2: 
             y_true = np.argmax(y_true, axis=1) 
-        # Copy so we can safely modify 
+        # Copy dvalues to avoid modifying the original data 
         self.dinputs = dvalues.copy() 
-        # Calculate gradient 
+        
+        '''
+        # Calculate gradient: softmax derivative combined with cross-entropy derivative
+        # This simplified formula works because of how softmax and cross-entropy 
+        # derivatives interact mathematically (they partially cancel out)
+        '''
         self.dinputs[range(samples), y_true] -= 1 
         # Normalize gradient 
         self.dinputs = self.dinputs / samples 
@@ -362,3 +399,8 @@ print("Dense1 weights gradient:\n", dense1.dweights)
 print("Dense1 biases gradient:\n", dense1.dbiases)
 print("Dense2 weights gradient:\n", dense2.dweights)
 print("Dense2 biases gradient:\n", dense2.dbiases)
+
+'''
+But this is not how 100% the way its actually done, as we still not -
+updating the weights using the caluculated gradients
+'''
