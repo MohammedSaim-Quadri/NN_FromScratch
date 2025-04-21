@@ -321,84 +321,84 @@ class Activation_Softmax_Loss_CategoricalCrossentropy():
 
 
 # Create dataset 
-X, y = spiral_data(points=100, classes=3)
-print("Shape of X:", X.shape)
-print("Shape of y:", y.shape)
+# X, y = spiral_data(points=100, classes=3)
+# print("Shape of X:", X.shape)
+# print("Shape of y:", y.shape)
 
-# Create Dense layer with 2 input features and 3 output values 
-dense1 = Layer_Dense(2, 3)
-print("\n[Layer Dense1] Initialized")
+# # Create Dense layer with 2 input features and 3 output values 
+# dense1 = Layer_Dense(2, 3)
+# print("\n[Layer Dense1] Initialized")
 
-# Create ReLU activation (to be used with Dense layer): 
-activation1 = Activation_ReLU()
-print("[Activation ReLU1] Initialized")
+# # Create ReLU activation (to be used with Dense layer): 
+# activation1 = Activation_ReLU()
+# print("[Activation ReLU1] Initialized")
 
-# Create second Dense layer with 3 input features (as we take output 
-# of previous layer here) and 3 output values (output values) 
-dense2 = Layer_Dense(3, 3) 
-print("[Layer Dense2] Initialized")
+# # Create second Dense layer with 3 input features (as we take output 
+# # of previous layer here) and 3 output values (output values) 
+# dense2 = Layer_Dense(3, 3) 
+# print("[Layer Dense2] Initialized")
 
-# Create Softmax classifier's combined loss and activation 
-loss_activation = Activation_Softmax_Loss_CategoricalCrossentropy()
-print("[Softmax + CrossEntropy] Initialized") 
+# # Create Softmax classifier's combined loss and activation 
+# loss_activation = Activation_Softmax_Loss_CategoricalCrossentropy()
+# print("[Softmax + CrossEntropy] Initialized") 
 
-print("\n--- FORWARD PASS ---")
-# Perform a forward pass of our training data through this layer 
-dense1.forward(X)
-print("[Dense1] Output shape:", dense1.output.shape)
+# print("\n--- FORWARD PASS ---")
+# # Perform a forward pass of our training data through this layer 
+# dense1.forward(X)
+# print("[Dense1] Output shape:", dense1.output.shape)
 
-# Perform a forward pass through activation function 
-# takes the output of first dense layer here 
-activation1.forward(dense1.output)
-print("[ReLU1] Output shape:", activation1.output.shape)
+# # Perform a forward pass through activation function 
+# # takes the output of first dense layer here 
+# activation1.forward(dense1.output)
+# print("[ReLU1] Output shape:", activation1.output.shape)
 
-# Perform a forward pass through second Dense layer 
-# takes outputs of activation function of first layer as inputs 
-dense2.forward(activation1.output)
-print("[Dense2] Output shape:", dense2.output.shape)
+# # Perform a forward pass through second Dense layer 
+# # takes outputs of activation function of first layer as inputs 
+# dense2.forward(activation1.output)
+# print("[Dense2] Output shape:", dense2.output.shape)
 
-# Perform a forward pass through the activation/loss function 
-# takes the output of second dense layer here and returns loss 
-loss = loss_activation.forward(dense2.output, y)
-print("[Softmax + Loss] Output shape:", loss_activation.output.shape)
+# # Perform a forward pass through the activation/loss function 
+# # takes the output of second dense layer here and returns loss 
+# loss = loss_activation.forward(dense2.output, y)
+# print("[Softmax + Loss] Output shape:", loss_activation.output.shape)
 
-# Let's see output of the first few samples: 
-print("\nFirst 5 Softmax outputs:")
-print(loss_activation.output[:5]) 
-# Print loss value 
-print('loss:', loss) 
-# Calculate accuracy from output of activation2 and targets 
-# calculate values along first axis 
-predictions = np.argmax(loss_activation.output, axis=1) 
-if len(y.shape) == 2:
-    y = np.argmax(y, axis=1) 
-accuracy = np.mean(predictions==y) 
+# # Let's see output of the first few samples: 
+# print("\nFirst 5 Softmax outputs:")
+# print(loss_activation.output[:5]) 
+# # Print loss value 
+# print('loss:', loss) 
+# # Calculate accuracy from output of activation2 and targets 
+# # calculate values along first axis 
+# predictions = np.argmax(loss_activation.output, axis=1) 
+# if len(y.shape) == 2:
+#     y = np.argmax(y, axis=1) 
+# accuracy = np.mean(predictions==y) 
 
-# Print accuracy 
-print('acc:', accuracy) 
+# # Print accuracy 
+# print('acc:', accuracy) 
 
-# Backward pass 
-print("\n--- BACKWARD PASS ---")
-loss_activation.backward(loss_activation.output, y)
-print("[Loss + Softmax Backward] dinputs shape:", loss_activation.dinputs.shape)
+# # Backward pass 
+# print("\n--- BACKWARD PASS ---")
+# loss_activation.backward(loss_activation.output, y)
+# print("[Loss + Softmax Backward] dinputs shape:", loss_activation.dinputs.shape)
 
-dense2.backward(loss_activation.dinputs)
-print("[Dense2 Backward] dweights shape:", dense2.dweights.shape)
-print("[Dense2 Backward] dbiases shape:", dense2.dbiases.shape)
+# dense2.backward(loss_activation.dinputs)
+# print("[Dense2 Backward] dweights shape:", dense2.dweights.shape)
+# print("[Dense2 Backward] dbiases shape:", dense2.dbiases.shape)
 
-activation1.backward(dense2.dinputs)
-print("[ReLU1 Backward] dinputs shape:", activation1.dinputs.shape)
+# activation1.backward(dense2.dinputs)
+# print("[ReLU1 Backward] dinputs shape:", activation1.dinputs.shape)
 
-dense1.backward(activation1.dinputs)
-print("[Dense1 Backward] dweights shape:", dense1.dweights.shape)
-print("[Dense1 Backward] dbiases shape:", dense1.dbiases.shape)
+# dense1.backward(activation1.dinputs)
+# print("[Dense1 Backward] dweights shape:", dense1.dweights.shape)
+# print("[Dense1 Backward] dbiases shape:", dense1.dbiases.shape)
 
-# Print gradients 
-print("\n--- FINAL GRADIENTS ---")
-print("Dense1 weights gradient:\n", dense1.dweights)
-print("Dense1 biases gradient:\n", dense1.dbiases)
-print("Dense2 weights gradient:\n", dense2.dweights)
-print("Dense2 biases gradient:\n", dense2.dbiases)
+# # Print gradients 
+# print("\n--- FINAL GRADIENTS ---")
+# print("Dense1 weights gradient:\n", dense1.dweights)
+# print("Dense1 biases gradient:\n", dense1.dbiases)
+# print("Dense2 weights gradient:\n", dense2.dweights)
+# print("Dense2 biases gradient:\n", dense2.dbiases)
 
 '''
 But this is not how 100% the way its actually done, as we still not -

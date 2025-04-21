@@ -4,11 +4,17 @@
 # The basic idea is to compute the gradient (or derivative) of the loss function with respect to the model parameters,
 # and then update the parameters in the opposite direction of the gradient.
 # This process is repeated until convergence, which is when the loss function reaches a minimum or stops changing significantly.
+# Gradient descent can be applied to various types of models, including linear regression, logistic regression, and neural networks.
+
+# Jump to the comprehensive optimizer summary: ctrl+f "OPTIMIZER_SUMMARY"
+
+
 import numpy as np
 import os
 import sys
-from create_data import spiral_data
+
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from create_data import spiral_data
 from p10.p10_backpropagation import(
     Layer_Dense,
     Activation_ReLU,
@@ -216,7 +222,7 @@ class Optimizer_Adagrad:
 RMSprop (Root Mean Square Propagation) addresses AdaGrad's aggressive learning rate decay with exponential moving averages:
 
 1. It improves upon AdaGrad by using a moving average of squared gradients rather than accumulating all past gradients
-2. The decay factor (rho, typically 0.9) controls how much history influences the current update
+2. The decay factor (rho, typically 0.9) controls how much history influences the current update, also called cache decay rate.
 3. This prevents the learning rate from becoming vanishingly small over time, allowing for continued learning
 4. RMSprop effectively divides the learning rate by a moving average of recent gradient magnitudes
 '''
@@ -264,6 +270,74 @@ class Optimizer_RMSprop:
         self.iterations += 1
 
 
+'''
+Adam (Adaptive Moment Estimation) combines the best of RMSprop and momentum for robust optimization:
+
+1. It maintains both first-moment (mean) and second-moment (uncentered variance) of gradients
+2. The first moment acts like momentum, accelerating in consistent directions
+3. The second moment adapts learning rates per-parameter like RMSprop
+4. Bias correction terms fix initialization bias when exponential moving averages start at zero
+
+Key implementation details:
+- Beta1 (typically 0.9) controls the exponential decay rate for the first moment
+- Beta2 (typically 0.999) controls the exponential decay rate for the second moment 
+- Momentum cache tracks the moving average of gradients
+- RMSprop-like cache tracks the moving average of squared gradients
+- Both caches are bias-corrected to account for their initialization at zero
+'''
+
+class Optimizer_Adam:
+    # Initialize optimizer - set settings
+    def __init__(self, learning_rate=0.001, decay=0., epsilon=1e-7, beta_1=0.9, beta_2=0.999):
+        self.learning_rate = learning_rate
+        self.current_learning_rate = learning_rate
+        self.decay = decay
+        self.iterations = 0
+        self.epsilon = epsilon
+        self.beta_1 = beta_1
+        self.beta_2 = beta_2
+
+    # Call once before any parameter updates
+    def pre_update_params(self):
+        if self.decay:
+            self.current_learning_rate = self.learning_rate * (1. / (1. + self.decay * self.iterations))
+
+    # Update parameters
+    def update_params(self, layer):
+        # If layer does not contain cache arrays, create them filled with zeros
+        if not hasattr(layer, 'weight_cache'):
+            layer.weight_momentums = np.zeros_like(layer.weights)
+            layer.weight_cache = np.zeros_like(layer.weights)
+            layer.bias_momentums = np.zeros_like(layer.biases)
+            layer.bias_cache = np.zeros_like(layer.biases)
+
+        # Update momentum with current gradients
+        layer.weight_momentums = self.beta_1 * layer.weight_momentums + (1 - self.beta_1) * layer.dweights
+        layer.bias_momentums = self.beta_1 * layer.bias_momentums + (1 - self.beta_1) * layer.dbiases
+
+        # Get corrected momentum
+        # self.iteration is 0 at first pass and we need to start with 1 here
+        weight_momentums_corrected = layer.weight_momentums / (1 - self.beta_1 ** (self.iterations + 1))
+        bias_momentums_corrected = layer.bias_momentums / (1 - self.beta_1 ** (self.iterations + 1))
+
+        # Update cache with squared current gradients
+        layer.weight_cache = self.beta_2 * layer.weight_cache + (1 - self.beta_2) * layer.dweights**2
+        layer.bias_cache = self.beta_2 * layer.bias_cache + (1 - self.beta_2) * layer.dbiases**2
+
+        # Get corrected cache
+        weight_cache_corrected = layer.weight_cache / (1 - self.beta_2 ** (self.iterations + 1))
+        bias_cache_corrected = layer.bias_cache / (1 - self.beta_2 ** (self.iterations + 1))
+
+        # Vanilla SGD parameter update + normalization with square rooted cache
+        layer.weights += -self.current_learning_rate * weight_momentums_corrected / (np.sqrt(weight_cache_corrected) + self.epsilon)
+        layer.biases += -self.current_learning_rate * bias_momentums_corrected / (np.sqrt(bias_cache_corrected) + self.epsilon)
+
+    # Call once after any parameter updates
+    def post_update_params(self):
+        self.iterations += 1
+
+
+
 # Create dataset
 X, y = spiral_data(points=100, classes=3)
 
@@ -284,10 +358,12 @@ loss_activation = Activation_Softmax_Loss_CategoricalCrossentropy()
 #optimizer = Optimizer_GD()
 #optimizer = Optimizer_GD_with_Decay(learning_rate=1.0, decay=1e-3)
 #optimizer = Optimizer_with_Monentum(decay=1e-3, momentum=0.9)
-optimizer = Optimizer_Adagrad(decay=1e-4)
+#optimizer = Optimizer_Adagrad(decay=1e-4)
 
 #Higher rho values (closer to 1) create a longer-term memory of past gradients
 #optimizer = Optimizer_RMSprop(learning_rate=0.02, decay=1e-5,rho=0.999)
+
+optimizer = Optimizer_Adam(learning_rate=0.02, decay=1e-5)
 
 # Train in loop
 for epoch in range(10001):
@@ -316,7 +392,8 @@ for epoch in range(10001):
     if not epoch % 100:
         print(f'epoch: {epoch}, ' +
                 f'acc: {accuracy:.3f}, ' +
-                f'loss: {loss:.3f}')
+                f'loss: {loss:.3f}' +
+                f'lr: {optimizer.current_learning_rate}')
     
     # Backward pass
     loss_activation.backward(loss_activation.output, y)
@@ -327,3 +404,35 @@ for epoch in range(10001):
     # Update weights and biases
     optimizer.update_params(dense1)
     optimizer.update_params(dense2)
+
+
+# ============== OPTIMIZER_SUMMARY ==============
+'''
+The code implements various gradient descent optimizers for training a neural network on a spiral dataset.
+
+- Gradient Descent (GD): The foundation of neural network optimization, updating parameters directly based on gradients. 
+                        Simple but limited by fixed learning rates and susceptibility to local minima.
+
+- GD with Decay: Addresses the fixed learning rate problem by gradually reducing learning rates over time, 
+                allowing faster initial progress and finer adjustments as training proceeds.
+
+- Momentum: Adds a velocity term that accumulates past gradients, helping overcome oscillations 
+            in steep gradients and push through flat regions and shallow local minima.
+
+- AdaGrad: Adapts learning rates per-parameter based on historical gradient information, giving smaller updates to 
+            frequently updated parameters and larger updates to infrequent ones.
+
+- RMSprop: Improves upon AdaGrad by using exponential moving averages of squared gradients instead of accumulating all past gradients, 
+            preventing learning rates from becoming too small over time.
+
+- Adam: Combines the best of momentum and RMSprop by maintaining both first-moment (velocity) and second-moment (adaptive learning rates) estimates,
+        with bias correction for more stable updates.
+
+The implementation demonstrates how each optimizer builds upon the previous one's strengths while addressing its limitations.
+The spiral dataset classification example effectively showcases how advanced optimizers like Adam typically deliver faster convergence and better
+performance than simpler approaches.
+
+This progression of optimizers represents the evolution of gradient-based optimization techniques in deep learning, 
+each addressing specific challenges in neural network training such as learning rate selection, navigating complex loss landscapes, 
+and balancing speed with stability.
+    '''
