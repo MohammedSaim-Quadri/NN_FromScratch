@@ -23,6 +23,7 @@ from p10.p10_backpropagation import(
     Loss_CategoricalCrossentropy,
     Loss
 )
+np.random.seed(0)
 
 # GD optimizer
 class Optimizer_GD:
@@ -339,6 +340,7 @@ class Optimizer_Adam:
 
 
 # Create dataset
+print("Training started...")
 X, y = spiral_data(points=100, classes=3)
 
 # Create Dense layer with 2 input features and 64 output values
@@ -405,6 +407,8 @@ for epoch in range(10001):
     optimizer.update_params(dense1)
     optimizer.update_params(dense2)
 
+print("Training finished...")
+
 
 # ============== OPTIMIZER_SUMMARY ==============
 '''
@@ -436,3 +440,46 @@ This progression of optimizers represents the evolution of gradient-based optimi
 each addressing specific challenges in neural network training such as learning rate selection, navigating complex loss landscapes, 
 and balancing speed with stability.
     '''
+
+# training accuracy with adam optimizer epoch: 10000, acc: 0.973, loss: 0.082
+# Validate the model 
+print("Validation started...")
+# Create test dataset 
+np.random.seed(1)
+X_test, y_test = spiral_data(points=100, classes=3) 
+# Perform a forward pass of our testing data through this layer 
+dense1.forward(X_test) 
+# Perform a forward pass through activation function 
+# takes the output of first dense layer here 
+activation1.forward(dense1.output) 
+# Perform a forward pass through second Dense layer 
+# takes outputs of activation function of first layer as inputs 
+dense2.forward(activation1.output) 
+# Perform a forward pass through the activation/loss function 
+# takes the output of second dense layer here and returns loss 
+loss = loss_activation.forward(dense2.output, y_test) 
+# Calculate accuracy from output of activation2 and targets 
+# calculate values along first axis 
+predictions = np.argmax(loss_activation.output, axis=1) 
+if len(y_test.shape) == 2: 
+    y_test = np.argmax(y_test, axis=1) 
+accuracy = np.mean(predictions==y_test) 
+print(f'validation, acc: {accuracy:.3f}, loss: {loss:.3f}') 
+
+print("Validation finished...")
+
+'''
+for seed 0:
+epoch: 10000, acc: 0.973, loss: 0.082lr: 0.02
+Training finished...
+Validation started...
+validation, acc: 0.810, loss: 0.851
+Validation finished...
+
+for seed 1:
+epoch: 10000, acc: 0.973, loss: 0.082lr: 0.02
+Training finished...
+Validation started...
+validation, acc: 0.807, loss: 0.938
+Validation finished...
+'''
